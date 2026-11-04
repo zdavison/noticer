@@ -707,6 +707,54 @@ echo "Script executed successfully"
         })
       })
 
+      describe('defaultYes config', () => {
+        const configPath = path.join(tmpDir, '.noticer', 'config.json')
+
+        it('WILL default to `no` when `.noticer/config.json` does not exist', async () => {
+          const { getConfig } = await import('../dist/lib.js')
+          expect(getConfig(tmpDir).defaultYes).toBe(false)
+        })
+
+        it('WILL read `defaultYes: true` from `.noticer/config.json`', async () => {
+          fs.writeJsonSync(configPath, { defaultYes: true })
+          const { getConfig } = await import('../dist/lib.js')
+          expect(getConfig(tmpDir).defaultYes).toBe(true)
+        })
+
+        it('WILL only accept the boolean `true` to enable `defaultYes`', async () => {
+          fs.writeJsonSync(configPath, { defaultYes: 'yes' })
+          const { getConfig } = await import('../dist/lib.js')
+          expect(getConfig(tmpDir).defaultYes).toBe(false)
+        })
+
+        it('WILL ignore an invalid `.noticer/config.json`', async () => {
+          fs.writeFileSync(configPath, '{ not json')
+          const { getConfig } = await import('../dist/lib.js')
+          expect(getConfig(tmpDir).defaultYes).toBe(false)
+        })
+
+        it('WILL not execute commands when no TTY is available, even with `defaultYes: true`', () => {
+          fs.writeJsonSync(configPath, { defaultYes: true })
+          fs.writeJsonSync(
+            path.join(noticesDir, 'notice-default-yes.json'),
+            {
+              content: 'Default yes test:\n!> echo "Should be skipped"',
+              author: 'Test Author',
+              date: new Date().toISOString(),
+            },
+            { spaces: 2 },
+          )
+
+          const stdout = execSync(`node ${cliPath} show </dev/null`, {
+            env: { ...process.env, HOME: tmpDir },
+            cwd: tmpDir,
+          }).toString()
+
+          expect(stdout).toContain('Default yes test')
+          expect(stdout).not.toContain('Executing:')
+        })
+      })
+
       describe('TTY fallback', () => {
         it('WILL skip command prompts when stdin is not a TTY and /dev/tty is unavailable', () => {
           // Create a test notice with a command

@@ -95,6 +95,22 @@ When users run `noticer show`, they'll see the notice and be prompted to execute
 
 Users can choose to execute or skip each command. Commands are executed in the repository's root directory.
 
+### Default answer
+
+By default, the prompt answer is `no` (`y/N`). If a user presses Enter, `noticer` skips the command.
+
+If your team trusts the people who write notices in a repository, you can make the default answer `yes` (`Y/n`). To do this, commit a `.noticer/config.json` file:
+
+```json
+{
+  "defaultYes": true
+}
+```
+
+Only the value `true` enables this mode. A missing file, an invalid file or any other value keeps the default answer `no`.
+
+This setting only changes the prompt default. `noticer` still prompts for each command. Use `--auto-execute` to run commands without a prompt.
+
 ### `/dev/tty` fallback
 
 `noticer` attempts to re-open `/dev/tty` when stdin is not a TTY.
