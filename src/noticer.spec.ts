@@ -707,34 +707,42 @@ echo "Script executed successfully"
         })
       })
 
-      describe('defaultYes config', () => {
+      describe('executionPromptDefault config', () => {
         const configPath = path.join(tmpDir, '.noticer', 'config.json')
 
         it('WILL default to `no` when `.noticer/config.json` does not exist', async () => {
           const { getConfig } = await import('../dist/lib.js')
-          expect(getConfig(tmpDir).defaultYes).toBe(false)
+          expect(getConfig(tmpDir).executionPromptDefault).toBe('no')
         })
 
-        it('WILL read `defaultYes: true` from `.noticer/config.json`', async () => {
-          fs.writeJsonSync(configPath, { defaultYes: true })
+        it('WILL read `executionPromptDefault: "yes"` from `.noticer/config.json`', async () => {
+          fs.writeJsonSync(configPath, { executionPromptDefault: 'yes' })
           const { getConfig } = await import('../dist/lib.js')
-          expect(getConfig(tmpDir).defaultYes).toBe(true)
+          expect(getConfig(tmpDir).executionPromptDefault).toBe('yes')
         })
 
-        it('WILL only accept the boolean `true` to enable `defaultYes`', async () => {
-          fs.writeJsonSync(configPath, { defaultYes: 'yes' })
+        it('WILL read `executionPromptDefault: "no"` from `.noticer/config.json`', async () => {
+          fs.writeJsonSync(configPath, { executionPromptDefault: 'no' })
           const { getConfig } = await import('../dist/lib.js')
-          expect(getConfig(tmpDir).defaultYes).toBe(false)
+          expect(getConfig(tmpDir).executionPromptDefault).toBe('no')
+        })
+
+        it('WILL use `no` for any value other than `"yes"`', async () => {
+          for (const value of [true, 'YES', 'y', 1]) {
+            fs.writeJsonSync(configPath, { executionPromptDefault: value })
+            const { getConfig } = await import('../dist/lib.js')
+            expect(getConfig(tmpDir).executionPromptDefault).toBe('no')
+          }
         })
 
         it('WILL ignore an invalid `.noticer/config.json`', async () => {
           fs.writeFileSync(configPath, '{ not json')
           const { getConfig } = await import('../dist/lib.js')
-          expect(getConfig(tmpDir).defaultYes).toBe(false)
+          expect(getConfig(tmpDir).executionPromptDefault).toBe('no')
         })
 
-        it('WILL not execute commands when no TTY is available, even with `defaultYes: true`', () => {
-          fs.writeJsonSync(configPath, { defaultYes: true })
+        it('WILL not execute commands when no TTY is available, even with `executionPromptDefault: "yes"`', () => {
+          fs.writeJsonSync(configPath, { executionPromptDefault: 'yes' })
           fs.writeJsonSync(
             path.join(noticesDir, 'notice-default-yes.json'),
             {

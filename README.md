@@ -103,11 +103,11 @@ If your team trusts the people who write notices in a repository, you can make t
 
 ```json
 {
-  "defaultYes": true
+  "executionPromptDefault": "yes"
 }
 ```
 
-Only the value `true` enables this mode. A missing file, an invalid file or any other value keeps the default answer `no`.
+The options are `"yes"` and `"no"`. A missing file, an invalid file or any other value keeps the default answer `no`.
 
 This setting only changes the prompt default. `noticer` still prompts for each command. Use `--auto-execute` to run commands without a prompt.
 

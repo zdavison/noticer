@@ -35,8 +35,8 @@ export interface SeenNotices {
  * Per-repository configuration, read from `.noticer/config.json` (committed)
  */
 export interface NoticerConfig {
-  /** If true, command prompts default to `yes` (Y/n) instead of `no` (y/N) */
-  defaultYes: boolean
+  /** Default answer for command prompts: `yes` (Y/n) or `no` (y/N) */
+  executionPromptDefault: 'yes' | 'no'
 }
 
 /**
@@ -81,15 +81,17 @@ export function getConfigPath(repoRoot: string): string {
  * @returns The repository config
  */
 export function getConfig(repoRoot: string): NoticerConfig {
-  const config: NoticerConfig = { defaultYes: false }
+  const config: NoticerConfig = { executionPromptDefault: 'no' }
   const configPath = getConfigPath(repoRoot)
   if (!fs.existsSync(configPath)) {
     return config
   }
   try {
     const raw = fs.readJsonSync(configPath)
-    // Only a literal `true` enables default yes, so typos stay on the safe side.
-    config.defaultYes = raw?.defaultYes === true
+    // Only an exact `"yes"` changes the default, so typos stay on the safe side.
+    if (raw?.executionPromptDefault === 'yes') {
+      config.executionPromptDefault = 'yes'
+    }
   } catch {
     // Invalid JSON, use defaults
   }
@@ -489,7 +491,7 @@ export async function run(options: RunOptions = {}): Promise<void> {
   try {
     const repoRoot = getRepoRoot()
     handleFirstRun(repoRoot)
-    const { defaultYes } = getConfig(repoRoot)
+    const defaultYes = getConfig(repoRoot).executionPromptDefault === 'yes'
     if (number) {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)

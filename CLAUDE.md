@@ -74,7 +74,7 @@ Noticer is a CLI tool for displaying developer notices in a repository. Notices 
 2. User's seen notices are tracked in `.noticer/seen.json` (gitignored)
 3. On first run (`show`), all notices except the latest are auto-marked as seen
 4. Commands prefixed with `!>` in notice content trigger interactive execution prompts
-5. Optional `.noticer/config.json` (committed) sets per-repo options. `defaultYes: true` makes command prompts default to yes
+5. Optional `.noticer/config.json` (committed) sets per-repo options. `executionPromptDefault` (`"yes"` or `"no"`, default `"no"`) sets the default answer for command prompts
 
 ### CLI Commands
 
