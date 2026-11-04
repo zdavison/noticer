@@ -8,6 +8,7 @@ import prompts from 'prompts'
 const NOTICER_DIR = '.noticer'
 const NOTICES_DIR = 'notices'
 const SEEN_NOTICES_FILE = 'seen.json'
+const CONFIG_FILE = 'config.json'
 
 /**
  * Represents a notice to be displayed to users
@@ -28,6 +29,14 @@ export interface Notice {
  */
 export interface SeenNotices {
   [id: string]: boolean
+}
+
+/**
+ * Per-repository configuration, read from `.noticer/config.json` (committed)
+ */
+export interface NoticerConfig {
+  /** Default answer for command prompts: `yes` (Y/n) or `no` (y/N) */
+  executionPromptDefault: 'yes' | 'no'
 }
 
 /**
@@ -55,6 +64,38 @@ export function getNoticesDir(repoRoot: string): string {
  */
 export function getSeenNoticesPath(repoRoot: string): string {
   return path.join(getNoticerDir(repoRoot), SEEN_NOTICES_FILE)
+}
+
+/**
+ * Gets the path to the config file in the repository
+ * @param repoRoot - The root directory of the repository
+ * @returns The path to the config file
+ */
+export function getConfigPath(repoRoot: string): string {
+  return path.join(getNoticerDir(repoRoot), CONFIG_FILE)
+}
+
+/**
+ * Reads the repository config. Missing or invalid config falls back to safe defaults.
+ * @param repoRoot - The root directory of the repository
+ * @returns The repository config
+ */
+export function getConfig(repoRoot: string): NoticerConfig {
+  const config: NoticerConfig = { executionPromptDefault: 'no' }
+  const configPath = getConfigPath(repoRoot)
+  if (!fs.existsSync(configPath)) {
+    return config
+  }
+  try {
+    const raw = fs.readJsonSync(configPath)
+    // Only an exact `"yes"` changes the default, so typos stay on the safe side.
+    if (raw?.executionPromptDefault === 'yes') {
+      config.executionPromptDefault = 'yes'
+    }
+  } catch {
+    // Invalid JSON, use defaults
+  }
+  return config
 }
 
 /**
@@ -228,8 +269,14 @@ function executeCommand(command: string, repoRoot: string): void {
  * @param command - The command to potentially execute
  * @param repoRoot - The repository root directory to execute commands from
  * @param autoExecute - Whether to auto-execute without prompting
+ * @param defaultYes - Whether the prompt defaults to `yes`
  */
-async function promptAndExecuteCommand(command: string, repoRoot: string, autoExecute = false): Promise<void> {
+async function promptAndExecuteCommand(
+  command: string,
+  repoRoot: string,
+  autoExecute = false,
+  defaultYes = false,
+): Promise<void> {
   // Auto-execute mode: run without prompting
   if (autoExecute) {
     executeCommand(command, repoRoot)
@@ -248,7 +295,7 @@ async function promptAndExecuteCommand(command: string, repoRoot: string, autoEx
       type: 'confirm',
       name: 'execute',
       message: `Execute command: ${chalk.yellow(command)}?`,
-      initial: false,
+      initial: defaultYes,
       stdin: ttyStream ?? process.stdin,
       stdout: process.stdout
     })
@@ -323,8 +370,14 @@ export function printNoticeSync(notice: Notice): void {
  * @param notice - The notice to print
  * @param repoRoot - The repository root directory to execute commands from
  * @param autoExecute - Whether to auto-execute commands without prompting
+ * @param defaultYes - Whether command prompts default to `yes`
  */
-export async function printNotice(notice: Notice, repoRoot?: string, autoExecute = false): Promise<void> {
+export async function printNotice(
+  notice: Notice,
+  repoRoot?: string,
+  autoExecute = false,
+  defaultYes = false,
+): Promise<void> {
   const contentLines = notice.content.split('\n')
   const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -376,7 +429,7 @@ export async function printNotice(notice: Notice, repoRoot?: string, autoExecute
   const commands = extractCommands(notice.content)
   const commandRepoRoot = repoRoot || getRepoRoot()
   for (const command of commands) {
-    await promptAndExecuteCommand(command, commandRepoRoot, autoExecute)
+    await promptAndExecuteCommand(command, commandRepoRoot, autoExecute, defaultYes)
   }
 }
 
@@ -385,15 +438,21 @@ export async function printNotice(notice: Notice, repoRoot?: string, autoExecute
  * @param notices - Array of notices to print
  * @param repoRoot - The repository root directory to execute commands from
  * @param autoExecute - Whether to auto-execute commands without prompting
+ * @param defaultYes - Whether command prompts default to `yes`
  */
-export async function printNotices(notices: Notice[], repoRoot?: string, autoExecute = false): Promise<void> {
+export async function printNotices(
+  notices: Notice[],
+  repoRoot?: string,
+  autoExecute = false,
+  defaultYes = false,
+): Promise<void> {
   if (notices.length === 0) {
     return
   }
 
   console.log('')
   for (const notice of notices) {
-    await printNotice(notice, repoRoot, autoExecute)
+    await printNotice(notice, repoRoot, autoExecute, defaultYes)
   }
   console.log('')
 }
@@ -432,16 +491,17 @@ export async function run(options: RunOptions = {}): Promise<void> {
   try {
     const repoRoot = getRepoRoot()
     handleFirstRun(repoRoot)
+    const defaultYes = getConfig(repoRoot).executionPromptDefault === 'yes'
     if (number) {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)
-      await printNotices(noticesToShow, repoRoot, autoExecute)
+      await printNotices(noticesToShow, repoRoot, autoExecute, defaultYes)
       for (const notice of noticesToShow) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
     } else {
       const unseenNotices = getUnseenNotices(repoRoot)
-      await printNotices(unseenNotices, repoRoot, autoExecute)
+      await printNotices(unseenNotices, repoRoot, autoExecute, defaultYes)
       for (const notice of unseenNotices) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
